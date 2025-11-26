@@ -1,0 +1,24 @@
+# Credentials OVH
+# Obtenez vos credentials depuis : https://www.ovh.com/auth/api/createToken
+ovh_application_key    = "your_application_key"
+ovh_application_secret = "your_application_secret"
+ovh_consumer_key       = "your_consumer_key"
+
+# Configuration des instances web
+# Pour ajouter une instance, ajoutez une entrée avec un nom unique
+# server_number correspond au numéro de l'image (web-1-*, web-2-*, etc.)
+web_instances = {
+  web1 = {
+    server_number = 1
+  }
+  web2 = {
+    server_number = 2
+  }
+}
+
+# Type d'instance OVH
+# Voir : https://www.ovhcloud.com/fr/public-cloud/prices/
+web_flavor   = "b2-7"
+
+# Nom du réseau
+network_name = "Ext-Net"
