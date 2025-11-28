@@ -48,3 +48,8 @@ vm-images/
 
 # Ovh File
 openrc.sh
+
+# Ansible files
+**/*.retry
+ansible/.vault_pass
+ansible/group_vars/vault.yml

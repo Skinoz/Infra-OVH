@@ -22,21 +22,16 @@ variable "output_directory" {
   default = "../vm-images"
 }
 
-variable "srv" {
-  type        = string
-  description = "Numéro du serveur (1, 2, 3, etc.)"
-}
-
 variable "ssh_public_key_file" {
   type        = string
   default     = "~/.ssh/id_rsa.pub"
   description = "Chemin vers la clé SSH publique à ajouter dans l'image"
 }
 
-source "qemu" "debian12-nginx" {
+source "qemu" "debian12-haproxy" {
   iso_url          = "https://cdimage.debian.org/cdimage/archive/12.7.0/amd64/iso-cd/debian-12.7.0-amd64-netinst.iso"
   iso_checksum     = "sha256:8fde79cfc6b20a696200fc5c15219cf6d721e8feb367e9e0e33a79d1cb68fa83"
-  output_directory = "${var.output_directory}/web-${var.srv}-${var.version}"
+  output_directory = "${var.output_directory}/haproxy-${var.version}"
   skip_compaction  = false
   use_backing_file = false
   shutdown_command = "echo 'packer' | sudo -S shutdown -P now"
@@ -48,7 +43,7 @@ source "qemu" "debian12-nginx" {
   ssh_username     = "debian"
   ssh_password     = "debian"
   ssh_timeout      = "20m"
-  vm_name          = "web-${var.srv}-${var.version}.qcow2"
+  vm_name          = "haproxy-${var.version}.qcow2"
   net_device       = "virtio-net"
   disk_interface   = "virtio"
   boot_wait        = "5s"
@@ -59,9 +54,8 @@ source "qemu" "debian12-nginx" {
 }
 
 build {
-  sources = ["source.qemu.debian12-nginx"]
+  sources = ["source.qemu.debian12-haproxy"]
 
-  # Ajouter la clé SSH publique pour l'utilisateur debian
   provisioner "file" {
     source      = pathexpand(var.ssh_public_key_file)
     destination = "/tmp/authorized_keys"
@@ -75,38 +69,26 @@ build {
       "chmod 600 /home/debian/.ssh/authorized_keys",
       "chown -R debian:debian /home/debian/.ssh",
       "rm /tmp/authorized_keys",
-      "# Configurer SSH pour accepter les clés",
       "sudo sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config",
       "sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config"
     ]
   }
 
-  # Installer Ansible si nécessaire
   provisioner "shell" {
     inline = [
       "command -v ansible-playbook || sudo apt-get update && sudo apt-get install -y ansible"
     ]
   }
 
-  # Copier les fichiers Ansible sur la VM
-  provisioner "file" {
-    source      = "../ansible"
-    destination = "/tmp/"
-  }
-
-  # Utiliser Ansible pour la configuration
   provisioner "ansible-local" {
-    playbook_file = "../ansible/playbooks/web.yml"
+    playbook_file = "../ansible/playbooks/haproxy.yml"
     extra_arguments = [
       "-e",
-      "server_number=${var.srv}",
-      "-e",
-      "server_version=${var.version}"
+      "haproxy_version=${var.version}"
     ]
     staging_directory = "/tmp/ansible"
   }
 
-  # Nettoyer les fichiers Ansible
   provisioner "shell" {
     inline = [
       "sudo rm -rf /tmp/ansible"
@@ -117,20 +99,19 @@ build {
     output     = "manifest.json"
     strip_path = true
     custom_data = {
-      image_name    = "web-${var.srv}-${var.version}"
-      server_number = var.srv
-      version       = var.version
-      build_time    = timestamp()
+      image_name      = "haproxy-${var.version}"
+      version         = var.version
+      build_time      = timestamp()
     }
   }
 
   post-processor "shell-local" {
     inline = [
-      "echo 'Image web-${var.srv}-${var.version}.qcow2 créée avec succès'",
-      "ls -lh ${var.output_directory}/web-${var.srv}-${var.version}/web-${var.srv}-${var.version}.qcow2",
+      "echo 'Image haproxy-${var.version}.qcow2 créée avec succès'",
+      "ls -lh ${var.output_directory}/haproxy-${var.version}/haproxy-${var.version}.qcow2",
       "echo 'Upload vers OpenStack OVH...'",
-      "openstack image create --disk-format qcow2 --container-format bare --file ${var.output_directory}/web-${var.srv}-${var.version}/web-${var.srv}-${var.version}.qcow2 --property image_original_user=debian --property hw_disk_bus=scsi --property hw_scsi_model=virtio-scsi --property packer_version=${var.version} --property packer_server=${var.srv} --private web-${var.srv}-${var.version} || echo 'Image déjà existante'",
-      "echo '{\"image_name\": \"web-${var.srv}-${var.version}\", \"version\": \"${var.version}\", \"server\": \"${var.srv}\"}' > ${var.output_directory}/web-${var.srv}-${var.version}/terraform-vars.json"
+      "openstack image create --disk-format qcow2 --container-format bare --file ${var.output_directory}/haproxy-${var.version}/haproxy-${var.version}.qcow2 --property image_original_user=debian --property hw_disk_bus=scsi --property hw_scsi_model=virtio-scsi --property packer_version=${var.version} --private haproxy-${var.version} || echo 'Image déjà existante'",
+      "echo '{\"image_name\": \"haproxy-${var.version}\", \"version\": \"${var.version}\", \"server\": \"haproxy\"}' > ${var.output_directory}/haproxy-${var.version}/terraform-vars.json"
     ]
   }
 }

@@ -14,6 +14,16 @@ web_instances = {
   web2 = {
     server_number = 2
   }
+  web3 = {
+    server_number = 1
+  }
+}
+
+# Configuration du Load Balancer HAProxy
+haproxy = {
+  enabled           = true                    # Activer/désactiver le load balancer
+  flavor            = "b2-7"                  # Type d'instance
+  backend_instances = ["web1", "web2", "web3"] # Instances web à utiliser comme backends
 }
 
 # Type d'instance OVH

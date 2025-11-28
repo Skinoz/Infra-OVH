@@ -1,0 +1,70 @@
+---
+- name: Configuration du serveur web Nginx
+  hosts: all
+  become: yes
+  vars:
+    server_number: "{{ server_number | default('1') }}"
+    server_version: "{{ server_version | default('1.0') }}"
+  
+  tasks:
+    - name: Nettoyer les fichiers cloud-init
+      file:
+        path: /var/lib/cloud/
+        state: absent
+
+    - name: Nettoyer cloud-init
+      command: cloud-init clean
+      ignore_errors: yes
+
+    - name: Installer Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Supprimer la configuration Nginx par défaut
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Copier la configuration Nginx
+      template:
+        src: ../templates/nginx-template.conf.j2
+        dest: /etc/nginx/sites-available/default
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Activer le site Nginx
+      file:
+        src: /etc/nginx/sites-available/default
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+
+    - name: Supprimer l'index par défaut
+      file:
+        path: /var/www/html/index.nginx-debian.html
+        state: absent
+
+    - name: Générer la page HTML personnalisée
+      template:
+        src: ../templates/index.html.j2
+        dest: /var/www/html/index.html
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Vérifier la configuration Nginx
+      command: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    - name: Afficher le résultat du test Nginx
+      debug:
+        var: nginx_test.stdout_lines
+
+    - name: Redémarrer Nginx
+      systemd:
+        name: nginx
+        state: restarted
+        enabled: yes

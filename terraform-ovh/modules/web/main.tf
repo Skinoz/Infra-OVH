@@ -15,10 +15,9 @@ data "openstack_images_image_v2" "image" {
 }
 
 resource "openstack_compute_instance_v2" "web" {
-  name            = local.instance_name
-  image_name      = data.openstack_images_image_v2.image.name
-  image_id        = data.openstack_images_image_v2.image.id
-  flavor_name     = local.flavor_name
+  name        = local.instance_name
+  image_id    = data.openstack_images_image_v2.image.id
+  flavor_name = local.flavor_name
 
   network {
     name = local.network_name

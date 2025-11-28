@@ -32,3 +32,23 @@ variable "network_name" {
   description = "Nom du réseau"
   type        = string
 }
+
+variable "haproxy_flavor" {
+  description = "Type d'instance pour HAProxy"
+  type        = string
+  default     = "b2-7"
+}
+
+variable "haproxy" {
+  description = "Configuration du load balancer HAProxy"
+  type = object({
+    enabled           = bool
+    flavor            = string
+    backend_instances = list(string)
+  })
+  default = {
+    enabled           = false
+    flavor            = "b2-7"
+    backend_instances = []
+  }
+}

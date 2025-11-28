@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Web Server ${server_number}</title>
+    <title>Web Server {{ server_number }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,15 +26,24 @@
             font-weight: bold;
             color: #667eea;
         }
+        .info {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
     <div class='container'>
-        <div class='server-number'>${server_number}</div>
-        <h1>🚀 Web Server ${server_number}</h1>
-        <p>Serveur web Nginx configuré avec Packer</p>
+        <div class='server-number'>{{ server_number }}</div>
+        <h1>🚀 Web Server {{ server_number }}</h1>
+        <p>Serveur web Nginx configuré avec Ansible & Packer</p>
         <p>Image créée pour OVH Public Cloud</p>
-        <p><small>Version: ${version}</small></p>
+        <div class='info'>
+            <p><strong>Version:</strong> {{ server_version }}</p>
+            <p><strong>Configuré par:</strong> Ansible</p>
+        </div>
     </div>
 </body>
 </html>

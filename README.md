@@ -4,8 +4,9 @@ Ce projet permet de gérer l'infrastructure OVH avec Terraform et de créer des 
 
 ## Prérequis
 
-- Terraform
-- Packer
+- Terraform >= 0.14.0
+- Packer >= 1.7.0
+- Ansible >= 2.9
 - Un compte OVH avec les credentials API
 - Accès OpenStack configuré
 
@@ -48,13 +49,20 @@ web_instances = {
   }
 }
 
+# Configuration du Load Balancer HAProxy
+haproxy = {
+  enabled           = true
+  flavor            = "b2-7"
+  backend_instances = ["web1", "web2"]  # Références aux clés de web_instances
+}
+
 web_flavor   = "b2-7"
 network_name = "Ext-Net"
 ```
 
 ## Création d'images avec Packer
 
-Les images sont créées avec Nginx préinstallé. Le script `build.sh` vous permet de choisir :
+Les images sont créées avec Nginx préinstallé et configuré via **Ansible**. Le script `build.sh` vous permet de choisir :
 - Le **numéro du serveur** (1, 2, 3, etc.)
 - La **version** de l'image (ex: 1.0, 1.1, 2.0)
 
@@ -71,6 +79,24 @@ Le script vous demandera :
 2. La version (ex: 1.0)
 
 L'image sera créée dans `~/infra-ovh/vm-images/web-{server_number}-{version}/`
+
+### Architecture
+
+```
+packer/
+├── debian-nginx.pkr.hcl    # Template Packer
+├── build.sh                # Script de build
+└── http/
+    └── preseed.cfg         # Configuration Debian
+
+ansible/
+├── playbooks/
+│   └── web.yml             # Playbook de configuration
+├── templates/
+│   ├── nginx-template.conf.j2
+│   └── index.html.j2
+└── ansible.cfg
+```
 
 ### Structure des images
 
@@ -163,7 +189,7 @@ Après le déploiement, vous pouvez voir les informations des instances :
 terraform output
 ```
 
-Exemple de sortie :
+Exemple de sortie avec HAProxy activé :
 
 ```
 web_instances = {
@@ -179,6 +205,20 @@ web_instances = {
     "instance_name" = "Serveur Web web2"
     "ssh_command" = "ssh -i ~/.ssh/id_rsa debian@51.255.60.24"
   }
+}
+
+haproxy = {
+  "instance_id" = "abc-123-def"
+  "instance_ip" = "51.xxx.xxx.xxx"
+  "lb_url"      = "http://51.xxx.xxx.xxx"
+  "ssh_command" = "ssh -i ~/.ssh/id_rsa debian@51.xxx.xxx.xxx"
+}
+
+load_balancer_url = "http://51.xxx.xxx.xxx"
+
+haproxy_backends = {
+  "web1" = "37.59.26.205"
+  "web2" = "51.255.60.24"
 }
 ```
 
@@ -196,21 +236,17 @@ ssh -i ~/.ssh/id_rsa debian@<IP_INSTANCE>
 infra-ovh/
 ├── packer/
 │   ├── build.sh              # Script de build des images
-│   └── ...                   # Templates Packer
+│   ├── debian-nginx.pkr.hcl  # Template Packer
+│   └── http/                 # Fichiers de configuration
+├── ansible/
+│   ├── playbooks/            # Playbooks Ansible
+│   ├── templates/            # Templates Jinja2
+│   └── ansible.cfg           # Configuration Ansible
 ├── terraform-ovh/
 │   ├── modules/
 │   │   └── web/              # Module pour instances web
-│   │       ├── main.tf
-│   │       ├── variables.tf
-│   │       ├── outputs.tf
-│   │       ├── locals.tf
-│   │       └── versions.tf
 │   └── environments/
 │       └── lab/              # Environnement lab
-│           ├── main.tf
-│           ├── variables.tf
-│           ├── outputs.tf
-│           └── terraform.tfvars
 ├── vm-images/                # Images générées par Packer
 ├── openrc.sh                 # Configuration OpenStack
 └── README.md
@@ -245,3 +281,67 @@ Pour plus d'informations :
 - [Documentation Terraform OVH](https://registry.terraform.io/providers/ovh/ovh/latest/docs)
 - [Documentation OpenStack Provider](https://registry.terraform.io/providers/terraform-provider-openstack/openstack/latest/docs)
 - [Documentation Packer](https://www.packer.io/docs)
+
+## Architecture avec Load Balancer
+
+Lorsque HAProxy est activé, l'architecture devient :
+
+```
+                    Internet
+                       |
+                 [HAProxy LB]
+                    /  |  \
+                   /   |   \
+              [Web1] [Web2] [Web3]
+```
+
+### Activer/Désactiver le Load Balancer
+
+Pour **activer** HAProxy, dans `terraform.tfvars` :
+
+```hcl
+haproxy = {
+  enabled           = true
+  flavor            = "b2-7"
+  backend_instances = ["web1", "web2", "web3"]
+}
+```
+
+Pour **désactiver** HAProxy :
+
+```hcl
+haproxy = {
+  enabled           = false
+  flavor            = "b2-7"
+  backend_instances = []
+}
+```
+
+### Choisir les backends
+
+Vous pouvez sélectionner quelles instances web seront derrière le load balancer :
+
+```hcl
+web_instances = {
+  web1 = { server_number = 1 }
+  web2 = { server_number = 1 }
+  web3 = { server_number = 2 }
+  web4 = { server_number = 2 }
+}
+
+haproxy = {
+  enabled           = true
+  flavor            = "b2-7"
+  backend_instances = ["web1", "web2"]  # Seulement web1 et web2 derrière HAProxy
+}
+```
+
+### Construire l'image HAProxy
+
+Avant de déployer HAProxy pour la première fois :
+
+```bash
+cd packer/
+chmod +x build-haproxy.sh
+./build-haproxy.sh 1.0
+```
