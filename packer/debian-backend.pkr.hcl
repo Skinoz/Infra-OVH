@@ -25,13 +25,13 @@ variable "output_directory" {
 variable "ssh_public_key_file" {
   type        = string
   default     = "~/.ssh/id_rsa.pub"
-  description = "Chemin vers la clé SSH publique à ajouter dans l'image"
+  description = "Chemin vers la clé SSH publique"
 }
 
-source "qemu" "debian12-nginx" {
+source "qemu" "debian12-backend" {
   iso_url          = "https://cdimage.debian.org/cdimage/archive/12.7.0/amd64/iso-cd/debian-12.7.0-amd64-netinst.iso"
   iso_checksum     = "sha256:8fde79cfc6b20a696200fc5c15219cf6d721e8feb367e9e0e33a79d1cb68fa83"
-  output_directory = "${var.output_directory}/web-${var.version}"
+  output_directory = "${var.output_directory}/backend-${var.version}"
   skip_compaction  = false
   use_backing_file = false
   shutdown_command = "echo 'packer' | sudo -S shutdown -P now"
@@ -43,7 +43,7 @@ source "qemu" "debian12-nginx" {
   ssh_username     = "debian"
   ssh_password     = "debian"
   ssh_timeout      = "20m"
-  vm_name          = "web-${var.version}.qcow2"
+  vm_name          = "backend-${var.version}.qcow2"
   net_device       = "virtio-net"
   disk_interface   = "virtio"
   boot_wait        = "5s"
@@ -54,7 +54,7 @@ source "qemu" "debian12-nginx" {
 }
 
 build {
-  sources = ["source.qemu.debian12-nginx"]
+  sources = ["source.qemu.debian12-backend"]
 
   provisioner "file" {
     source      = pathexpand(var.ssh_public_key_file)
@@ -86,10 +86,10 @@ build {
   }
 
   provisioner "ansible-local" {
-    playbook_file = "../ansible/playbooks/web.yml"
+    playbook_file = "../ansible/playbooks/backend.yml"
     extra_arguments = [
       "-e",
-      "server_version=${var.version}"
+      "backend_version=${var.version}"
     ]
     staging_directory = "/tmp/ansible"
   }
@@ -104,7 +104,7 @@ build {
     output     = "manifest.json"
     strip_path = true
     custom_data = {
-      image_name = "web-${var.version}"
+      image_name = "backend-${var.version}"
       version    = var.version
       build_time = timestamp()
     }
@@ -112,11 +112,11 @@ build {
 
   post-processor "shell-local" {
     inline = [
-      "echo 'Image web-${var.version}.qcow2 créée avec succès'",
-      "ls -lh ${var.output_directory}/web-${var.version}/web-${var.version}.qcow2",
+      "echo 'Image backend-${var.version}.qcow2 créée avec succès'",
+      "ls -lh ${var.output_directory}/backend-${var.version}/backend-${var.version}.qcow2",
       "echo 'Upload vers OpenStack OVH...'",
-      "openstack image create --disk-format qcow2 --container-format bare --file ${var.output_directory}/web-${var.version}/web-${var.version}.qcow2 --property image_original_user=debian --property hw_disk_bus=scsi --property hw_scsi_model=virtio-scsi --property packer_version=${var.version} --private web-${var.version} || echo 'Image déjà existante'",
-      "echo '{\"image_name\": \"web-${var.version}\", \"version\": \"${var.version}\"}' > ${var.output_directory}/web-${var.version}/terraform-vars.json"
+      "openstack image create --disk-format qcow2 --container-format bare --file ${var.output_directory}/backend-${var.version}/backend-${var.version}.qcow2 --property image_original_user=debian --property hw_disk_bus=scsi --property hw_scsi_model=virtio-scsi --property packer_version=${var.version} --private backend-${var.version} || echo 'Image déjà existante'",
+      "echo '{\"image_name\": \"backend-${var.version}\", \"version\": \"${var.version}\"}' > ${var.output_directory}/backend-${var.version}/terraform-vars.json"
     ]
   }
 }

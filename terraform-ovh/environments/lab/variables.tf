@@ -17,10 +17,8 @@ variable "ovh_consumer_key" {
 }
 
 variable "web_instances" {
-  description = "Map des instances web à créer"
-  type = map(object({
-    server_number = number
-  }))
+  description = "Liste des instances web à créer"
+  type        = set(string)
 }
 
 variable "web_flavor" {
@@ -51,4 +49,28 @@ variable "haproxy" {
     flavor            = "b2-7"
     backend_instances = []
   }
+}
+
+variable "backend_instances" {
+  description = "Liste des instances backend à créer"
+  type        = set(string)
+  default     = []
+}
+
+variable "backend_flavor" {
+  description = "Type d'instance pour les serveurs backend"
+  type        = string
+  default     = "b2-7"
+}
+
+variable "database_enabled" {
+  description = "Activer le serveur de base de données"
+  type        = bool
+  default     = false
+}
+
+variable "database_flavor" {
+  description = "Type d'instance pour le serveur database"
+  type        = string
+  default     = "b2-7"
 }

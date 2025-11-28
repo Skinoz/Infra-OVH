@@ -11,7 +11,8 @@ data "external" "latest_image" {
 }
 
 data "openstack_images_image_v2" "image" {
-  name = data.external.latest_image.result.image_name
+  name        = data.external.latest_image.result.image_name
+  most_recent = true
 }
 
 resource "openstack_compute_instance_v2" "haproxy" {
