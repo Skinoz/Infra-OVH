@@ -9,6 +9,7 @@ Infrastructure as Code pour déployer une infrastructure web évolutive sur OVH 
 - [Prérequis](#-prérequis)
 - [Configuration](#-configuration)
 - [Images Packer](#-images-packer)
+- [Modules Terraform](#-modules-terraform)
 - [Déploiement](#-déploiement)
 - [Gestion](#-gestion-de-linfrastructure)
 - [Dépannage](#-dépannage)
@@ -16,25 +17,26 @@ Infrastructure as Code pour déployer une infrastructure web évolutive sur OVH 
 ## 🎯 Vue d'ensemble
 
 Déployez une infrastructure web complète comprenant :
-- **Serveurs Web Nginx** : Serveurs frontaux
-- **Load Balancer HAProxy** : Répartition de charge
-- **Serveurs Backend** : Logique applicative
-- **Base de données** : Serveur de base de données unique
+- **Serveurs Web Nginx** : Serveurs frontaux avec proxy vers les backends
+- **Load Balancer HAProxy** : Répartition de charge entre les serveurs web
+- **Serveurs Backend** : API Node.js Express avec connexion à la base de données
+- **Base de données PostgreSQL** : Serveur de base de données unique
 
 ## 🏗️ Architecture
 
 ```
-            Internet
-               |
-         [HAProxy LB]
-            /  |  \
-           /   |   \
-      [Web1] [Web2] [Web3]
-           \   |   /
-            \  |  /
-          [Backend API]
-                |
-           [Database]
+        Internet
+           |
+     [HAProxy LB] ... # Autant que l'on souhaite
+        /  |  \
+       /   |   \
+  [Web1] [Web2] ... # Autant que l'on souhaite
+       \   |   /
+        \  |  /
+   [API1] [API2] ...  # Autant que l'on souhaite
+        \  |  /
+         \ | /
+      [Database]
 ```
 
 ## ✅ Prérequis
@@ -188,29 +190,53 @@ infra-ovh/
 ├── README.md
 ├── openrc.sh                    # Config OpenStack
 ├── packer/
-│   ├── build-nginx.sh
-│   ├── build-haproxy.sh
-│   ├── build-backend.sh
-│   ├── build-database.sh
 │   ├── debian-nginx.pkr.hcl
-│   ├── debian-haproxy. pkr.hcl
+│   ├── debian-haproxy.pkr.hcl
 │   ├── debian-backend.pkr.hcl
 │   ├── debian-database.pkr.hcl
 │   └── http/preseed.cfg
 ├── ansible/
 │   ├── playbooks/
+│   │   ├── web.yml
+│   │   ├── haproxy.yml
+│   │   ├── backend.yml
+│   │   └── database.yml
 │   └── templates/
+│       ├── index.html.j2
+│       ├── nginx-proxy.conf.j2
+│       └── backend-api.js.j2
 ├── terraform-ovh/
 │   ├── modules/
-│   └── environments/lab/
-│       ├── main.tf
-│       ├── variables.tf
-│       ├── outputs.tf
-│       └── terraform.tfvars
-└── vm-images/
-    ├── web-1-1.0/
+│   │   ├── database/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   ├── outputs.tf
+│   │   │   └── locals.tf
+│   │   ├── backend/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   ├── outputs.tf
+│   │   │   └── locals.tf
+│   │   ├── web/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   ├── outputs.tf
+│   │   │   └── locals.tf
+│   │   └── haproxy/
+│   │       ├── main.tf
+│   │       ├── variables.tf
+│   │       ├── outputs.tf
+│   │       └── locals.tf
+│   └── environments/
+│       └── lab/
+│           ├── main.tf
+│           ├── variables.tf
+│           ├── outputs.tf
+│           └── terraform.tfvars
+└── vm-images/                   # Généré par Packer
+    ├── web-1.0/
     ├── haproxy-1.0/
-    ├── backend-1. 0/
+    ├── backend-1.0/
     └── database-1.0/
 ```
 
